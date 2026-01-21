@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+:root {
+  --background: #FFFFFF;
+  --foreground: #171717;
+  --theme-color-primary: #5FA9DF;
+  --gradient-01: linear-gradient(124deg, #0C1523 31.78%, #6B6E86 63.45%);
+  --gradient-02: linear-gradient(177deg, #D1D8E1 2.03%, #FFF 90.98%);
+  --gradient-03: linear-gradient(178deg, #0A0732 25.47%, rgba(26, 12, 81, 0.11) 91.89%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: var(--background);
+    --foreground: var(--foreground);
+    --theme-color-primary: var(--theme-color-primary);
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* Gradients */
+.gradient-01-bg {
+  background: var(--gradient-01);
+}
+.gradient-02-bg {
+  background: var(--gradient-02);
+}
+.gradient-01 {
+  background: var(--gradient-01);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+.gradient-02 {
+  background: var(--gradient-02);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+.gradient-03 {
+  background: var(--gradient-03);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+
+.custom-shadow-lg {
+  box-shadow: 0 8px 80px 0 rgba(0, 0, 0, 0.08);
+}
+
+/* Button Styles - Wellbyn Style */
+.btn-primary {
+  @apply bg-[#5FA9DF] text-white px-4 py-2 rounded-full font-medium hover:bg-[#4A9BCE] transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg;
+}
+
+.btn-secondary {
+  @apply bg-white text-[#171717] px-4 py-2 rounded-full font-medium hover:bg-gray-100 border border-gray-200 transition-all duration-300 ease-in-out transform hover:scale-105;
+}
+
+.card {
+  @apply bg-white rounded-xl shadow-lg p-6 border border-gray-100;
+}

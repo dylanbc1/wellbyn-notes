@@ -1,0 +1,54 @@
+# OS files
+.DS_Store
+*.swp
+*.swo
+
+# Python (Backend)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# Node.js (Frontend)
+node_modules/
+dist/
+dist-ssr/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Database
+*.db
+*.sqlite
+
+# Audio files (optional - comment if you want to keep them)
+notes-backend/audio_files/*.mp3
+notes-backend/audio_files/*.wav
+notes-backend/transcriptions/*.json
+
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
