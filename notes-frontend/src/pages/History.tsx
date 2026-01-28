@@ -73,14 +73,15 @@ export const History = () => {
   }
 
   return (
-    <div className="flex-1 p-6 overflow-y-auto">
+    <div className="flex-1 overflow-y-auto flex justify-center">
+      <div className="w-full max-w-3xl px-8 py-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-8">
         <div>
           <h2 className="text-3xl font-bold text-[#0C1523] mb-2">
-            Historial de Transcripciones
+            Historial de transcripciones
           </h2>
-          <p className="text-[#3C4147]">
+          <p className="text-[#0C1523] font-medium">
             Total: <span className="font-semibold">{total}</span> transcripciones
           </p>
         </div>
@@ -98,11 +99,11 @@ export const History = () => {
       {transcriptions.length === 0 ? (
         <div className="card text-center py-12">
           <FaInbox className="text-6xl text-[#C7E7FF] mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-[#3C4147] mb-2">
+          <h3 className="text-xl font-bold text-[#0C1523] mb-2">
             No hay transcripciones aún
           </h3>
-          <p className="text-[#6B7280]">
-            Ve a Inicio para grabar tu primer audio
+          <p className="text-[#0C1523] font-medium">
+            Ve a inicio para grabar tu primer audio
           </p>
         </div>
       ) : (
@@ -117,6 +118,7 @@ export const History = () => {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 };

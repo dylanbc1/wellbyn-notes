@@ -17,14 +17,16 @@ export const Sidebar = () => {
   };
 
   return (
-    <div className="w-64 bg-[#0C1523] min-h-screen flex flex-col">
+    <div className="w-64 bg-[#F0F8FF] min-h-screen flex flex-col border-r border-[#E0F2FF]">
       {/* Logo/Header */}
-      <div className="p-6 border-b border-[#1a2332]">
-        <div className="flex items-center space-x-3">
+      <div className="p-6 border-b border-[#E0F2FF] text-center">
+        <div className="flex items-center justify-center space-x-3">
           <FaStethoscope className="text-3xl text-[#5FA9DF]" />
-          <h1 className="text-2xl font-bold text-white">Notes</h1>
+          <h1 className="text-2xl font-bold text-[#0C1523]">Notes</h1>
         </div>
-        <p className="text-sm text-[#6B7280] mt-2">Panel Médico</p>
+        <p className="text-sm text-[#0C1523] font-bold mt-2">
+          Panel médico
+        </p>
       </div>
 
       {/* Navigation */}
@@ -36,7 +38,7 @@ export const Sidebar = () => {
               className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
                 isActive('/')
                   ? 'bg-[#5FA9DF] text-white'
-                  : 'text-[#9CA3AF] hover:bg-[#1a2332] hover:text-white'
+                  : 'text-[#0C1523] hover:bg-[#E0F2FF]'
               }`}
             >
               <FaHome className="text-xl" />
@@ -49,7 +51,7 @@ export const Sidebar = () => {
               className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
                 isActive('/historial')
                   ? 'bg-[#5FA9DF] text-white'
-                  : 'text-[#9CA3AF] hover:bg-[#1a2332] hover:text-white'
+                  : 'text-[#0C1523] hover:bg-[#E0F2FF]'
               }`}
             >
               <FaHistory className="text-xl" />
@@ -63,7 +65,7 @@ export const Sidebar = () => {
                 className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
                   isActive('/ehr-config')
                     ? 'bg-[#5FA9DF] text-white'
-                    : 'text-[#9CA3AF] hover:bg-[#1a2332] hover:text-white'
+                    : 'text-[#0C1523] hover:bg-[#E0F2FF]'
                 }`}
               >
                 <FaPlug className="text-xl" />
@@ -75,18 +77,18 @@ export const Sidebar = () => {
       </nav>
 
       {/* User Info & Logout */}
-      <div className="p-4 border-t border-[#1a2332]">
+      <div className="p-4 border-t border-[#E0F2FF]">
         {user && (
           <div className="mb-4">
-            <div className="flex items-center space-x-3 px-3 py-2 bg-[#1a2332] rounded-lg">
+            <div className="flex items-center space-x-3 px-3 py-2 bg-white rounded-lg border border-[#E0F2FF] shadow-sm">
               <div className="w-8 h-8 bg-[#5FA9DF] rounded-full flex items-center justify-center">
                 <FaUser className="text-white text-sm" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">
+                <p className="text-sm font-medium text-[#0C1523] truncate">
                   {user.full_name}
                 </p>
-                <p className="text-xs text-[#6B7280] truncate">
+                <p className="text-xs text-[#0C1523] font-medium truncate">
                   {user.role === 'doctor' ? 'Doctor' : 'Administrador'}
                 </p>
               </div>
@@ -95,12 +97,12 @@ export const Sidebar = () => {
         )}
         <button
           onClick={handleLogout}
-          className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-[#9CA3AF] hover:bg-[#1a2332] hover:text-white transition-all duration-200"
+          className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-[#0C1523] font-medium hover:bg-[#E0F2FF] transition-all duration-200"
         >
           <FaSignOutAlt className="text-xl" />
           <span className="font-medium">Cerrar Sesión</span>
         </button>
-        <p className="text-xs text-[#6B7280] text-center mt-4">
+        <p className="text-xs text-[#0C1523] font-medium text-center mt-4">
           © 2025 Wellbyn Notes
         </p>
       </div>

@@ -15,7 +15,11 @@ export interface UseAudioRecorderReturn {
   onChunkAvailable?: (chunk: Blob) => void;
 }
 
-export const useAudioRecorder = (onChunkAvailable?: (chunk: Blob) => void): UseAudioRecorderReturn => {
+export const useAudioRecorder = (
+  onChunkAvailable?: (chunk: Blob) => void,
+  options?: { streamingMode?: boolean }
+): UseAudioRecorderReturn => {
+  const streamingMode = options?.streamingMode ?? false;
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -105,10 +109,12 @@ export const useAudioRecorder = (onChunkAvailable?: (chunk: Blob) => void): UseA
       };
 
       mediaRecorderRef.current = mediaRecorder;
-      // Iniciar grabación con timeslice de 6000ms (6 segundos) 
-      // Chunks más largos = archivos WebM más válidos y completos
-      // Esto asegura que cada chunk tenga headers completos
-      mediaRecorder.start(6000);
+      // Timeslice depende del modo:
+      // - Streaming mode (real-time): 250ms para actualizaciones palabra por palabra
+      // - Normal mode: 6000ms para chunks más válidos
+      const timeslice = streamingMode ? 250 : 6000;
+      console.log(`🎤 Starting recording with timeslice: ${timeslice}ms (streaming: ${streamingMode})`);
+      mediaRecorder.start(timeslice);
       setIsRecording(true);
       
       startTimeRef.current = Date.now();
