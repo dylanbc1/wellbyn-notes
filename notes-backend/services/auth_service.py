@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 import secrets
 import hashlib
-from passlib.context import CryptContext
+import bcrypt
 import logging
 
 from models.user import User, Session, UserRole
@@ -16,22 +16,33 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 
-# Contexto para hashing de contraseñas
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 
 class AuthService:
     """Servicio para autenticación"""
     
     @staticmethod
     def hash_password(password: str) -> str:
-        """Hashea una contraseña"""
-        return pwd_context.hash(password)
+        """Hashea una contraseña usando bcrypt"""
+        # Convertir contraseña a bytes
+        password_bytes = password.encode('utf-8')
+        # Generar salt y hashear
+        salt = bcrypt.gensalt()
+        hashed = bcrypt.hashpw(password_bytes, salt)
+        # Devolver como string
+        return hashed.decode('utf-8')
     
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
-        """Verifica una contraseña"""
-        return pwd_context.verify(plain_password, hashed_password)
+        """Verifica una contraseña usando bcrypt"""
+        try:
+            # Convertir a bytes
+            password_bytes = plain_password.encode('utf-8')
+            hashed_bytes = hashed_password.encode('utf-8')
+            # Verificar
+            return bcrypt.checkpw(password_bytes, hashed_bytes)
+        except Exception as e:
+            logger.error(f"Error verifying password: {e}")
+            return False
     
     @staticmethod
     def create_user(db: Session, user_data: UserCreate) -> User:

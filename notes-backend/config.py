@@ -7,6 +7,7 @@ from functools import lru_cache
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
+# Load .env file first
 load_dotenv()
 
 
@@ -23,7 +24,11 @@ class Settings(BaseSettings):
     PORT: int = int(os.getenv("PORT", "8000"))
     
     # CORS
-    ALLOWED_ORIGINS: list = ["*"]
+    _allowed_origins = os.getenv("ALLOWED_ORIGINS", "")
+    ALLOWED_ORIGINS: list = (
+        _allowed_origins.split(",") if _allowed_origins 
+        else ["http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000", "http://127.0.0.1:5173"]
+    )
     
     # Database
     DATABASE_URL: str = os.getenv(
@@ -38,6 +43,14 @@ class Settings(BaseSettings):
     # Hugging Face (optional, not required for local models)
     HF_TOKEN: str = os.getenv("HF_TOKEN", "")
     
+    # Deepgram API - Read directly from environment after load_dotenv()
+    DEEPGRAM_API_KEY: str = os.getenv("DEEPGRAM_API_KEY", "").strip() if os.getenv("DEEPGRAM_API_KEY") else ""
+    DEEPGRAM_MODEL: str = os.getenv("DEEPGRAM_MODEL", "nova-2").strip() if os.getenv("DEEPGRAM_MODEL") else "nova-2"
+    
+    # Transcription provider selection
+    # Options: "huggingface" (local Whisper), "deepgram" (cloud), "auto" (try Deepgram first, fallback to local)
+    TRANSCRIPTION_PROVIDER: str = os.getenv("TRANSCRIPTION_PROVIDER", "auto")
+    
     # Transcription model (local)
     AVAILABLE_MODELS: dict = {
         "whisper-base": {
@@ -47,7 +60,28 @@ class Settings(BaseSettings):
             "description": "Local Whisper Base model - Fast and efficient for multilingual transcription (74 MB)",
             "language": "multilingual",
             "speed": "fast",
-            "quality": "good"
+            "quality": "good",
+            "provider": "huggingface"
+        },
+        "deepgram-nova-2": {
+            "name": "Deepgram Nova-2 (Cloud)",
+            "id": "deepgram/nova-2",
+            "url": "cloud",
+            "description": "Deepgram Nova-2 model - High accuracy cloud transcription",
+            "language": "multilingual",
+            "speed": "very_fast",
+            "quality": "excellent",
+            "provider": "deepgram"
+        },
+        "deepgram-nova-3": {
+            "name": "Deepgram Nova-3 (Cloud)",
+            "id": "deepgram/nova-3",
+            "url": "cloud",
+            "description": "Deepgram Nova-3 model - Latest high accuracy cloud transcription",
+            "language": "multilingual",
+            "speed": "very_fast",
+            "quality": "excellent",
+            "provider": "deepgram"
         }
     }
     
@@ -159,7 +193,28 @@ def get_settings() -> Settings:
     """
     Returns cached singleton settings instance
     """
-    return Settings()
+    # Ensure we have the latest env vars
+    load_dotenv(override=True)
+    
+    settings_instance = Settings()
+    
+    # Debug: Log Deepgram API key status and ensure it's set
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Always check environment directly as source of truth
+    env_key = os.getenv("DEEPGRAM_API_KEY", "").strip()
+    if env_key:
+        if not settings_instance.DEEPGRAM_API_KEY or settings_instance.DEEPGRAM_API_KEY != env_key:
+            # Update the settings instance
+            object.__setattr__(settings_instance, "DEEPGRAM_API_KEY", env_key)
+            logger.info(f"Deepgram API Key loaded from environment (length: {len(env_key)})")
+        else:
+            logger.info(f"Deepgram API Key already set in settings (length: {len(env_key)})")
+    else:
+        logger.warning("DEEPGRAM_API_KEY not found in environment")
+    
+    return settings_instance
 
 
 # Export settings instance

@@ -13,6 +13,27 @@ from config import settings
 from services.huggingface_service import HuggingFaceService
 from services.transcription_service import TranscriptionService
 from services.ai_medical_service import AIMedicalService
+
+import logging
+logger = logging.getLogger(__name__)
+
+# Import DeepgramService with error handling
+try:
+    from services.deepgram_service import DeepgramService
+    DEEPGRAM_SERVICE_AVAILABLE = True
+except ImportError as e:
+    DEEPGRAM_SERVICE_AVAILABLE = False
+    DeepgramService = None
+    logger.warning(f"DeepgramService not available: {e}")
+
+# Import DeepgramStreamingService for real-time transcription
+try:
+    from services.deepgram_streaming_service import DeepgramStreamingService
+    DEEPGRAM_STREAMING_AVAILABLE = True
+except ImportError as e:
+    DEEPGRAM_STREAMING_AVAILABLE = False
+    DeepgramStreamingService = None
+    logger.warning(f"DeepgramStreamingService not available: {e}")
 from schemas.transcription import (
     TranscriptionCreate, 
     TranscriptionResponse, 
@@ -27,8 +48,41 @@ from typing import Optional, List, Dict, Any, Union
 
 router = APIRouter(prefix="/api/transcriptions", tags=["Transcriptions"])
 
-import logging
-logger = logging.getLogger(__name__)
+
+def get_transcription_service():
+    """
+    Get the appropriate transcription service based on configuration.
+    Returns tuple: (service_instance, provider_name, model_id)
+    """
+    provider = settings.TRANSCRIPTION_PROVIDER.lower()
+    
+    # If auto mode, try Deepgram first if API key is available
+    if provider == "auto":
+        if DEEPGRAM_SERVICE_AVAILABLE and settings.DEEPGRAM_API_KEY:
+            logger.info("Using Deepgram (auto mode)")
+            return DeepgramService(), "deepgram", f"deepgram/{settings.DEEPGRAM_MODEL}"
+        else:
+            logger.info("Using HuggingFace (auto mode, Deepgram not configured or unavailable)")
+            return HuggingFaceService(), "huggingface", settings.AVAILABLE_MODELS[settings.DEFAULT_MODEL]["id"]
+    
+    # Explicit provider selection
+    elif provider == "deepgram":
+        if not DEEPGRAM_SERVICE_AVAILABLE:
+            logger.warning("Deepgram requested but service not available. Falling back to HuggingFace.")
+            return HuggingFaceService(), "huggingface", settings.AVAILABLE_MODELS[settings.DEFAULT_MODEL]["id"]
+        if not settings.DEEPGRAM_API_KEY:
+            logger.warning("Deepgram requested but API key not configured. Falling back to HuggingFace.")
+            return HuggingFaceService(), "huggingface", settings.AVAILABLE_MODELS[settings.DEFAULT_MODEL]["id"]
+        logger.info("Using Deepgram (explicit)")
+        return DeepgramService(), "deepgram", f"deepgram/{settings.DEEPGRAM_MODEL}"
+    
+    elif provider == "huggingface":
+        logger.info("Using HuggingFace (explicit)")
+        return HuggingFaceService(), "huggingface", settings.AVAILABLE_MODELS[settings.DEFAULT_MODEL]["id"]
+    
+    else:
+        logger.warning(f"Unknown provider '{provider}'. Using HuggingFace as fallback.")
+        return HuggingFaceService(), "huggingface", settings.AVAILABLE_MODELS[settings.DEFAULT_MODEL]["id"]
 
 
 def filter_transcription_for_role(transcription, user: User):
@@ -74,11 +128,11 @@ async def transcribe_audio_chunk(
     if len(audio_bytes) == 0:
         return {"text": "", "status": "empty"}
     
-    # Transcribe con Hugging Face
-    hf_service = HuggingFaceService()
+    # Get transcription service (Deepgram or HuggingFace)
+    transcription_service, provider, model_id = get_transcription_service()
     
     content_type = audio.content_type or "audio/webm"
-    result = hf_service.transcribe_audio(audio_bytes, content_type)
+    result = transcription_service.transcribe_audio(audio_bytes, content_type)
     
     if result["status"] == "error":
         return {"text": "", "status": "error", "message": result.get("message", "Error transcribing")}
@@ -152,11 +206,11 @@ async def transcribe_audio(
             detail=f"File too large: {file_size_mb:.2f} MB. Maximum: {settings.MAX_FILE_SIZE_MB} MB"
         )
     
-    # Transcribe with Hugging Face
-    hf_service = HuggingFaceService()
+    # Get transcription service (Deepgram or HuggingFace)
+    transcription_service, provider, model_id = get_transcription_service()
     
     start_time = time.time()
-    result = hf_service.transcribe_audio(audio_bytes, content_type)
+    result = transcription_service.transcribe_audio(audio_bytes, content_type)
     elapsed_time = time.time() - start_time
     
     # Validate result
@@ -167,15 +221,14 @@ async def transcribe_audio(
         raise HTTPException(status_code=503, detail="Model is loading. Please retry in 30 seconds")
     
     # Save to database
-    model_config = settings.AVAILABLE_MODELS[settings.DEFAULT_MODEL]
     transcription_data = TranscriptionCreate(
         filename=audio.filename,
         file_size_mb=round(file_size_mb, 2),
         content_type=content_type,
         text=result["text"],
         processing_time_seconds=round(elapsed_time, 2),
-        model=model_config["id"],
-        provider="huggingface"
+        model=model_id,
+        provider=provider
     )
     
     db_transcription = TranscriptionService.create_transcription(db, transcription_data)
@@ -456,4 +509,135 @@ def run_full_workflow(
         "message": "Full workflow completed successfully",
         "transcription": filtered_transcription
     }
+
+
+# ==================== Real-Time Streaming WebSocket ====================
+
+@router.websocket("/stream")
+async def websocket_transcription_stream(websocket: WebSocket):
+    """
+    WebSocket endpoint for real-time audio transcription with Deepgram.
+    
+    Client sends:
+    - Binary audio data (audio chunks)
+    - JSON messages: {"type": "start"}, {"type": "stop"}
+    
+    Server sends:
+    - JSON: {"type": "transcript", "text": "...", "is_final": true/false}
+    - JSON: {"type": "error", "message": "..."}
+    - JSON: {"type": "connected"}
+    """
+    await websocket.accept()
+    logger.info("WebSocket connection accepted for streaming transcription")
+    
+    if not DEEPGRAM_STREAMING_AVAILABLE:
+        await websocket.send_json({
+            "type": "error",
+            "message": "Deepgram streaming service not available"
+        })
+        await websocket.close()
+        return
+    
+    if not settings.DEEPGRAM_API_KEY:
+        await websocket.send_json({
+            "type": "error", 
+            "message": "DEEPGRAM_API_KEY not configured"
+        })
+        await websocket.close()
+        return
+    
+    deepgram_service: Optional[DeepgramStreamingService] = None
+    
+    async def on_transcript(text: str, is_final: bool):
+        """Callback when transcript is received from Deepgram"""
+        try:
+            await websocket.send_json({
+                "type": "transcript",
+                "text": text,
+                "is_final": is_final
+            })
+        except Exception as e:
+            logger.error(f"Error sending transcript to client: {e}")
+    
+    async def on_error(error_msg: str):
+        """Callback when error occurs"""
+        try:
+            await websocket.send_json({
+                "type": "error",
+                "message": error_msg
+            })
+        except Exception as e:
+            logger.error(f"Error sending error to client: {e}")
+    
+    try:
+        # Create streaming service
+        deepgram_service = DeepgramStreamingService(
+            on_transcript=on_transcript,
+            on_error=on_error
+        )
+        
+        # Connect to Deepgram
+        connected = await deepgram_service.connect(language="es")
+        
+        if not connected:
+            await websocket.send_json({
+                "type": "error",
+                "message": "Failed to connect to Deepgram"
+            })
+            await websocket.close()
+            return
+        
+        # Notify client that we're connected
+        await websocket.send_json({"type": "connected"})
+        
+        # Main loop: receive audio from client and forward to Deepgram
+        while True:
+            try:
+                # Receive data from client
+                data = await websocket.receive()
+                
+                if "bytes" in data:
+                    # Binary audio data - forward to Deepgram
+                    audio_bytes = data["bytes"]
+                    logger.debug(f"Received {len(audio_bytes)} bytes from client")
+                    await deepgram_service.send_audio(audio_bytes)
+                    
+                elif "text" in data:
+                    # JSON control message
+                    try:
+                        message = json.loads(data["text"])
+                        msg_type = message.get("type")
+                        
+                        if msg_type == "stop":
+                            logger.info("Client requested stop")
+                            break
+                            
+                    except json.JSONDecodeError:
+                        logger.warning(f"Invalid JSON message: {data['text']}")
+                        
+            except WebSocketDisconnect:
+                logger.info("WebSocket disconnected by client")
+                break
+            except Exception as e:
+                logger.error(f"Error in WebSocket loop: {e}")
+                break
+                
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        try:
+            await websocket.send_json({
+                "type": "error",
+                "message": str(e)
+            })
+        except:
+            pass
+    finally:
+        # Cleanup
+        if deepgram_service:
+            await deepgram_service.close()
+        try:
+            await websocket.close()
+        except:
+            pass
+        logger.info("WebSocket connection closed")
 
